@@ -176,7 +176,8 @@ function setMeshVisibility(meshName, visible) {
 function applyDoubleSided(obj, meshName = "", tint = null) {
   const isLand = meshName.endsWith("-Land");
   const isOverpass = meshName.endsWith("-Overpass");
-  const opacity = isOverpass ? 0.95 : isLand ? 0.5 : 0.75;
+  const isPlot = meshName.endsWith("-Plot");
+  const opacity = isOverpass ? 0.95 : isPlot ? 0.6 : isLand ? 0.5 : 0.75;
   obj.traverse((child) => {
     if (!child.isMesh) return;
     if (child.geometry && !child.geometry.attributes.normal) {
@@ -193,6 +194,8 @@ function applyDoubleSided(obj, meshName = "", tint = null) {
         material.color.set(tint);
         if (isLand) {
           material.color.multiplyScalar(0.5);
+        } else if (isOverpass) {
+          material.color.multiplyScalar(1.5);
         }
       }
       material.needsUpdate = true;
