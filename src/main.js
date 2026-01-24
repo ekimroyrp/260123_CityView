@@ -7,6 +7,7 @@ import {
   DirectionalLight,
   DoubleSide,
   Group,
+  Object3D,
   PerspectiveCamera,
   Scene,
   SRGBColorSpace,
@@ -34,6 +35,8 @@ const meshRegistry = new Map();
 
 const canvas = document.getElementById("scene-canvas");
 
+Object3D.DEFAULT_UP.set(0, 0, 1);
+
 const renderer = new WebGLRenderer({
   canvas,
   antialias: true,
@@ -56,6 +59,7 @@ const camera = new PerspectiveCamera(
   0.1,
   5000
 );
+camera.up.set(0, 0, 1);
 camera.position.set(40, 30, 60);
 
 const controls = new OrbitControls(camera, renderer.domElement);
