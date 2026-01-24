@@ -97,7 +97,10 @@ function setMeshVisibility(meshName, visible) {
   }
 }
 
-function applyDoubleSided(obj) {
+function applyDoubleSided(obj, meshName = "") {
+  const isLand = meshName.endsWith("-Land");
+  const isOverpass = meshName.endsWith("-Overpass");
+  const opacity = isOverpass ? 0.95 : isLand ? 0.5 : 0.75;
   obj.traverse((child) => {
     if (!child.isMesh) return;
     if (child.geometry && !child.geometry.attributes.normal) {
@@ -108,6 +111,8 @@ function applyDoubleSided(obj) {
       : [child.material];
     materials.forEach((material) => {
       material.side = DoubleSide;
+      material.transparent = true;
+      material.opacity = opacity;
       material.needsUpdate = true;
     });
   });
@@ -125,7 +130,7 @@ function loadMesh(district, meshLabel) {
       url.href,
       (obj) => {
         obj.name = baseName;
-        applyDoubleSided(obj);
+        applyDoubleSided(obj, baseName);
         const desired = visibilityState.get(baseName);
         if (typeof desired === "boolean") {
           obj.visible = desired;
