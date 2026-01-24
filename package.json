@@ -1,0 +1,20 @@
+{
+  "name": "260123_cityview",
+  "version": "1.0.0",
+  "description": "Simple three.js viewer for CityView blockout meshes.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "author": "ekimroyrp <ekimroyrp@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.182.0"
+  },
+  "devDependencies": {
+    "vite": "^7.3.0"
+  }
+}

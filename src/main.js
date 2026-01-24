@@ -1,0 +1,312 @@
+import "./style.css";
+import {
+  ACESFilmicToneMapping,
+  AmbientLight,
+  Box3,
+  Color,
+  DirectionalLight,
+  DoubleSide,
+  Group,
+  PerspectiveCamera,
+  Scene,
+  SRGBColorSpace,
+  Vector3,
+  WebGLRenderer,
+} from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
+
+const DISTRICTS = [
+  { title: "NORTH STAR", folder: "NORTH STAR", prefix: "NS" },
+  { title: "FLASHING LIGHTS", folder: "FLASHING LIGHTS", prefix: "FL" },
+  { title: "NEXUS", folder: "NEXUS", prefix: "NX" },
+  { title: "SPACE MIND", folder: "SPACE MIND", prefix: "SM" },
+  { title: "LITTLE MEOW", folder: "LITTLE MEOW", prefix: "LM" },
+  { title: "TRANQUILITY GARDENS", folder: "TRANQUILITY GARDENS", prefix: "TG" },
+  { title: "HAVEN HEIGHTS", folder: "HAVEN HEIGHTS", prefix: "HH" },
+  { title: "DISTRICT ZERO", folder: "DISTRICT ZERO", prefix: "DZ" },
+];
+
+const MESH_ORDER = ["Building", "Overpass", "Plot", "Sidewalk", "Street", "Land"];
+
+const visibilityState = new Map();
+const meshRegistry = new Map();
+
+const canvas = document.getElementById("scene-canvas");
+
+const renderer = new WebGLRenderer({
+  canvas,
+  antialias: true,
+  alpha: false,
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+if ("outputColorSpace" in renderer) {
+  renderer.outputColorSpace = SRGBColorSpace;
+}
+
+const scene = new Scene();
+scene.background = new Color(0x0b1323);
+
+const camera = new PerspectiveCamera(
+  45,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  5000
+);
+camera.position.set(40, 30, 60);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.enablePan = true;
+controls.enableZoom = true;
+controls.minDistance = 5;
+controls.maxDistance = 2000;
+
+scene.add(new AmbientLight(0x9ab8ff, 0.6));
+
+const keyLight = new DirectionalLight(0xffffff, 1.0);
+keyLight.position.set(6, 12, 8);
+scene.add(keyLight);
+
+const fillLight = new DirectionalLight(0x6ca6df, 0.6);
+fillLight.position.set(-6, -4, -6);
+scene.add(fillLight);
+
+const worldRoot = new Group();
+scene.add(worldRoot);
+
+function setMeshVisibility(meshName, visible) {
+  visibilityState.set(meshName, visible);
+  const mesh = meshRegistry.get(meshName);
+  if (mesh) {
+    mesh.visible = visible;
+  }
+}
+
+function applyDoubleSided(obj) {
+  obj.traverse((child) => {
+    if (!child.isMesh) return;
+    if (child.geometry && !child.geometry.attributes.normal) {
+      child.geometry.computeVertexNormals();
+    }
+    const materials = Array.isArray(child.material)
+      ? child.material
+      : [child.material];
+    materials.forEach((material) => {
+      material.side = DoubleSide;
+      material.needsUpdate = true;
+    });
+  });
+}
+
+function loadMesh(district, meshLabel) {
+  const baseName = `${district.prefix}-${meshLabel}`;
+  const url = new URL(
+    `../Blockout/${district.folder}/${baseName}.obj`,
+    import.meta.url
+  );
+  const loader = new OBJLoader();
+  return new Promise((resolve, reject) => {
+    loader.load(
+      url.href,
+      (obj) => {
+        obj.name = baseName;
+        applyDoubleSided(obj);
+        const desired = visibilityState.get(baseName);
+        if (typeof desired === "boolean") {
+          obj.visible = desired;
+        }
+        worldRoot.add(obj);
+        meshRegistry.set(baseName, obj);
+        resolve(obj);
+      },
+      undefined,
+      (error) => {
+        console.warn(`Failed to load ${baseName}`, error);
+        reject(error);
+      }
+    );
+  });
+}
+
+function frameScene() {
+  const box = new Box3().setFromObject(worldRoot);
+  if (box.isEmpty()) return;
+  const size = new Vector3();
+  const center = new Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+
+  worldRoot.position.sub(center);
+
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const fov = (camera.fov * Math.PI) / 180;
+  let distance = maxDim / (2 * Math.tan(fov / 2));
+  distance *= 1.4;
+
+  camera.near = Math.max(0.1, distance / 100);
+  camera.far = distance * 10;
+  camera.position.set(distance * 0.6, distance * 0.4, distance);
+  camera.updateProjectionMatrix();
+
+  controls.target.set(0, 0, 0);
+  controls.update();
+}
+
+function handleResize() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+
+window.addEventListener("resize", handleResize);
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+function initUI() {
+  const root = document.getElementById("ui-root");
+  root.innerHTML = `
+    <div id="ui-panel">
+      <div id="ui-handle">CityView Meshes</div>
+      <div class="ui-body" id="menu-body"></div>
+      <div id="ui-handle-bottom"></div>
+    </div>
+  `;
+
+  const menuBody = document.getElementById("menu-body");
+
+  DISTRICTS.forEach((district) => {
+    const section = document.createElement("div");
+    section.className = "section";
+
+    const title = document.createElement("div");
+    title.className = "section-title";
+    title.textContent = district.title;
+
+    const content = document.createElement("div");
+    content.className = "section-content";
+
+    MESH_ORDER.forEach((meshLabel) => {
+      const baseName = `${district.prefix}-${meshLabel}`;
+      const row = document.createElement("div");
+      row.className = "control-row toggle-row";
+      const id = `toggle-${baseName}`;
+      row.innerHTML = `
+        <label for="${id}">${baseName}</label>
+        <label class="switch">
+          <input type="checkbox" id="${id}" checked>
+          <span class="slider"></span>
+        </label>
+      `;
+      const input = row.querySelector("input");
+      const defaultVisible = visibilityState.get(baseName);
+      if (typeof defaultVisible === "boolean") {
+        input.checked = defaultVisible;
+      } else {
+        visibilityState.set(baseName, true);
+      }
+      input.addEventListener("change", () => {
+        setMeshVisibility(baseName, input.checked);
+      });
+      content.appendChild(row);
+    });
+
+    section.appendChild(title);
+    section.appendChild(content);
+    menuBody.appendChild(section);
+
+    title.addEventListener("click", () => {
+      const collapsed = section.classList.toggle("collapsed");
+      content.style.display = collapsed ? "none" : "block";
+    });
+  });
+
+  const panel = document.getElementById("ui-panel");
+  const handles = [
+    document.getElementById("ui-handle"),
+    document.getElementById("ui-handle-bottom"),
+  ].filter(Boolean);
+
+  if (panel && handles.length) {
+    panel.style.position = "fixed";
+    const rectInit = panel.getBoundingClientRect();
+    panel.style.left = `${rectInit.left}px`;
+    panel.style.top = `${rectInit.top}px`;
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    const onMove = (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const left = startLeft + dx;
+      const top = startTop + dy;
+      panel.style.left = `${left}px`;
+      panel.style.top = `${top}px`;
+      panel.style.right = "auto";
+    };
+
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      handles.forEach((h) => {
+        h.style.cursor = "grab";
+      });
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+
+    handles.forEach((handle) => {
+      handle.addEventListener("mousedown", (e) => {
+        dragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = parseFloat(panel.style.left) || 0;
+        startTop = parseFloat(panel.style.top) || 0;
+        handles.forEach((h) => {
+          h.style.cursor = "grabbing";
+        });
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      handle.style.cursor = "grab";
+    });
+
+    window.addEventListener("resize", () => {
+      panel.style.right = "auto";
+    });
+  }
+}
+
+async function loadAllMeshes() {
+  const tasks = [];
+  for (const district of DISTRICTS) {
+    for (const meshLabel of MESH_ORDER) {
+      tasks.push(loadMesh(district, meshLabel));
+    }
+  }
+  const results = await Promise.allSettled(tasks);
+  const failures = results.filter((r) => r.status === "rejected");
+  if (failures.length) {
+    console.warn(`Failed to load ${failures.length} meshes`);
+  }
+  frameScene();
+}
+
+initUI();
+loadAllMeshes();
+animate();
