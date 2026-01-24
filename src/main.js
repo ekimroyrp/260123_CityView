@@ -29,6 +29,82 @@ const DISTRICTS = [
 ];
 
 const MESH_ORDER = ["Building", "Overpass", "Plot", "Sidewalk", "Street", "Land"];
+const DISTRICT_COLORS = new Map([
+  ["NS", 0x0b9a4c],
+  ["FL", 0xfeb953],
+  ["NX", 0xb0b5c8],
+  ["SM", 0x7b59fa],
+  ["LM", 0xe63036],
+  ["TG", 0x8fd558],
+  ["HH", 0x5a98fb],
+  ["DZ", 0xff5819],
+]);
+
+function rgbToHsv(r, g, b) {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+  let h = 0;
+  if (delta !== 0) {
+    if (max === r) {
+      h = ((g - b) / delta) % 6;
+    } else if (max === g) {
+      h = (b - r) / delta + 2;
+    } else {
+      h = (r - g) / delta + 4;
+    }
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  const s = max === 0 ? 0 : delta / max;
+  const v = max;
+  return { h, s, v };
+}
+
+function hsvToRgb(h, s, v) {
+  const c = v * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = v - c;
+  let r1 = 0;
+  let g1 = 0;
+  let b1 = 0;
+  if (h < 60) {
+    r1 = c;
+    g1 = x;
+  } else if (h < 120) {
+    r1 = x;
+    g1 = c;
+  } else if (h < 180) {
+    g1 = c;
+    b1 = x;
+  } else if (h < 240) {
+    g1 = x;
+    b1 = c;
+  } else if (h < 300) {
+    r1 = x;
+    b1 = c;
+  } else {
+    r1 = c;
+    b1 = x;
+  }
+  return { r: r1 + m, g: g1 + m, b: b1 + m };
+}
+
+function adjustDistrictColor(hex) {
+  const color = new Color(hex);
+  const { h, s, v } = rgbToHsv(color.r, color.g, color.b);
+  const newS = Math.min(1, Math.max(0, s - 0.2));
+  const newV = Math.min(1, Math.max(0, v + 1.0));
+  const { r, g, b } = hsvToRgb(h, newS, newV);
+  return new Color(r, g, b).getHex();
+}
+
+const DISTRICT_TINTS = new Map(
+  [...DISTRICT_COLORS.entries()].map(([key, hex]) => [
+    key,
+    adjustDistrictColor(hex),
+  ])
+);
 
 const visibilityState = new Map();
 const meshRegistry = new Map();
@@ -97,7 +173,7 @@ function setMeshVisibility(meshName, visible) {
   }
 }
 
-function applyDoubleSided(obj, meshName = "") {
+function applyDoubleSided(obj, meshName = "", tint = null) {
   const isLand = meshName.endsWith("-Land");
   const isOverpass = meshName.endsWith("-Overpass");
   const opacity = isOverpass ? 0.95 : isLand ? 0.5 : 0.75;
@@ -113,6 +189,12 @@ function applyDoubleSided(obj, meshName = "") {
       material.side = DoubleSide;
       material.transparent = true;
       material.opacity = opacity;
+      if (tint !== null && material && "color" in material) {
+        material.color.set(tint);
+        if (isLand) {
+          material.color.multiplyScalar(0.5);
+        }
+      }
       material.needsUpdate = true;
     });
   });
@@ -120,6 +202,7 @@ function applyDoubleSided(obj, meshName = "") {
 
 function loadMesh(district, meshLabel) {
   const baseName = `${district.prefix}-${meshLabel}`;
+  const tint = DISTRICT_TINTS.get(district.prefix) ?? 0xffffff;
   const url = new URL(
     `../Blockout/${district.folder}/${baseName}.obj`,
     import.meta.url
@@ -130,7 +213,7 @@ function loadMesh(district, meshLabel) {
       url.href,
       (obj) => {
         obj.name = baseName;
-        applyDoubleSided(obj, baseName);
+        applyDoubleSided(obj, baseName, tint);
         const desired = visibilityState.get(baseName);
         if (typeof desired === "boolean") {
           obj.visible = desired;
