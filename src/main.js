@@ -357,10 +357,12 @@ function initLoadingOverlay() {
 
 function updateLoadingOverlay() {
   if (!loadingState.bar || !loadingState.label) return;
-  const pct = loadingState.total === 0
+  const ratio = loadingState.total === 0
     ? 1
     : loadingState.loaded / loadingState.total;
-  loadingState.bar.style.width = `${Math.round(pct * 100)}%`;
+  const clamped = Math.min(1, Math.max(0, ratio));
+  const percent = clamped * 100;
+  loadingState.bar.style.width = `${percent.toFixed(1)}%`;
   loadingState.label.textContent = `${loadingState.loaded} / ${loadingState.total}`;
 }
 
