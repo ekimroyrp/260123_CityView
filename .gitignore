@@ -1,3 +1,8 @@
-node_modules/
-dist/
+# Dependencies
+node_modules
+
+# Logs and temp
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
 .DS_Store
