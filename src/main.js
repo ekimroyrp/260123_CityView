@@ -32,6 +32,13 @@ const MESH_ORDER = ["Building", "Overpass", "Plot", "Sidewalk", "Street", "Land"
 
 const visibilityState = new Map();
 const meshRegistry = new Map();
+const loadingState = {
+  total: DISTRICTS.length * MESH_ORDER.length,
+  loaded: 0,
+  overlay: null,
+  bar: null,
+  label: null,
+};
 
 const canvas = document.getElementById("scene-canvas");
 
@@ -125,11 +132,13 @@ function loadMesh(district, meshLabel) {
         }
         worldRoot.add(obj);
         meshRegistry.set(baseName, obj);
+        markMeshLoaded(baseName, true);
         resolve(obj);
       },
       undefined,
       (error) => {
         console.warn(`Failed to load ${baseName}`, error);
+        markMeshLoaded(baseName, false);
         reject(error);
       }
     );
@@ -327,6 +336,48 @@ function initUI() {
   }
 }
 
+function initLoadingOverlay() {
+  const app = document.getElementById("app");
+  const overlay = document.createElement("div");
+  overlay.id = "loading-overlay";
+  overlay.innerHTML = `
+    <div class="loading-panel">
+      <div class="loading-title">Loading Meshes</div>
+      <div class="loading-bar">
+        <div class="loading-bar-fill"></div>
+      </div>
+      <div class="loading-meta">0 / ${loadingState.total}</div>
+    </div>
+  `;
+  app.appendChild(overlay);
+  loadingState.overlay = overlay;
+  loadingState.bar = overlay.querySelector(".loading-bar-fill");
+  loadingState.label = overlay.querySelector(".loading-meta");
+}
+
+function updateLoadingOverlay() {
+  if (!loadingState.bar || !loadingState.label) return;
+  const pct = loadingState.total === 0
+    ? 1
+    : loadingState.loaded / loadingState.total;
+  loadingState.bar.style.width = `${Math.round(pct * 100)}%`;
+  loadingState.label.textContent = `${loadingState.loaded} / ${loadingState.total}`;
+}
+
+function markMeshLoaded() {
+  loadingState.loaded += 1;
+  updateLoadingOverlay();
+  if (loadingState.loaded >= loadingState.total && loadingState.overlay) {
+    loadingState.overlay.classList.add("done");
+    window.setTimeout(() => {
+      if (loadingState.overlay) {
+        loadingState.overlay.remove();
+        loadingState.overlay = null;
+      }
+    }, 350);
+  }
+}
+
 async function loadAllMeshes() {
   const tasks = [];
   for (const district of DISTRICTS) {
@@ -343,5 +394,7 @@ async function loadAllMeshes() {
 }
 
 initUI();
+initLoadingOverlay();
+updateLoadingOverlay();
 loadAllMeshes();
 animate();

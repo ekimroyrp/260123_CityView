@@ -46,6 +46,66 @@ html {
   pointer-events: none;
 }
 
+#loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#loading-overlay.done {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.loading-panel {
+  min-width: 260px;
+  padding: 18px 18px 16px;
+  border-radius: 14px;
+  color: #ffffff;
+  background: var(--panel-bg);
+  box-shadow:
+    0 14px 36px var(--panel-shadow),
+    inset 0 2px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.32),
+    inset 2px 0 0 rgba(255, 255, 255, 0.12),
+    inset -2px 0 0 rgba(0, 0, 0, 0.32);
+  backdrop-filter: var(--panel-blur);
+  -webkit-backdrop-filter: var(--panel-blur);
+}
+
+.loading-title {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  margin-bottom: 10px;
+}
+
+.loading-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.2), 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.loading-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #c76412 0%, #ffb347 100%);
+  transition: width 120ms ease;
+}
+
+.loading-meta {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
 #ui-panel {
   display: flex;
   flex-direction: column;
