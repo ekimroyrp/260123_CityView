@@ -4,7 +4,7 @@
   --bg-bottom: #08111d;
   --panel-bg: rgba(255, 255, 255, 0.08);
   --panel-border: rgba(255, 255, 255, 0.5);
-  --panel-shadow: rgba(16, 53, 92, 0.35);
+  --panel-shadow: rgba(240, 138, 36, 0.12);
   --panel-blur: blur(14px);
   --text: #0c1a2b;
   --accent: #e5f1ff;
@@ -22,7 +22,7 @@ html {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: radial-gradient(120% 120% at 50% 20%, #0f2138 0%, var(--bg-top) 50%, var(--bg-bottom) 100%);
+  background: #000000;
   color: #eaf6ff;
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   overflow: hidden;
@@ -131,9 +131,14 @@ html {
 }
 
 .section-title::after {
-  content: "?";
-  font-size: 12px;
-  opacity: 0.8;
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 7px solid rgba(255, 255, 255, 0.85);
+  display: inline-block;
+  opacity: 0.9;
   transition: transform 120ms ease;
 }
 
@@ -210,7 +215,7 @@ html {
 }
 
 .switch input:checked + .slider {
-  background: linear-gradient(135deg, #0060b8, #2293e6);
+  background: linear-gradient(90deg, #c76412 0%, #ffb347 100%);
   border-color: rgba(255, 255, 255, 0.3);
 }
 

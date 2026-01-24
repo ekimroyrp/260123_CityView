@@ -51,7 +51,7 @@ if ("outputColorSpace" in renderer) {
 }
 
 const scene = new Scene();
-scene.background = new Color(0x0b1323);
+scene.background = new Color(0x000000);
 
 const camera = new PerspectiveCamera(
   45,
@@ -66,8 +66,8 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enablePan = true;
 controls.enableZoom = true;
-controls.minDistance = 5;
-controls.maxDistance = 2000;
+controls.minDistance = 0.1;
+controls.maxDistance = 20000;
 
 scene.add(new AmbientLight(0x9ab8ff, 0.6));
 
@@ -151,12 +151,13 @@ function frameScene() {
   let distance = maxDim / (2 * Math.tan(fov / 2));
   distance *= 1.4;
 
-  camera.near = Math.max(0.1, distance / 100);
-  camera.far = distance * 10;
+  camera.near = Math.max(0.01, distance / 1000);
+  camera.far = Math.max(distance * 20, 50000);
   camera.position.set(distance * 0.6, distance * 0.4, distance);
   camera.updateProjectionMatrix();
 
   controls.target.set(0, 0, 0);
+  controls.maxDistance = camera.far * 0.8;
   controls.update();
 }
 
@@ -180,7 +181,7 @@ function initUI() {
   const root = document.getElementById("ui-root");
   root.innerHTML = `
     <div id="ui-panel">
-      <div id="ui-handle">CityView Meshes</div>
+      <div id="ui-handle"></div>
       <div class="ui-body" id="menu-body"></div>
       <div id="ui-handle-bottom"></div>
     </div>
@@ -190,7 +191,7 @@ function initUI() {
 
   DISTRICTS.forEach((district) => {
     const section = document.createElement("div");
-    section.className = "section";
+    section.className = "section collapsed";
 
     const title = document.createElement("div");
     title.className = "section-title";
@@ -198,6 +199,15 @@ function initUI() {
 
     const content = document.createElement("div");
     content.className = "section-content";
+    content.style.display = "none";
+
+    const sectionToggles = [];
+    const setSectionMeshes = (visible) => {
+      sectionToggles.forEach((toggle) => {
+        toggle.input.checked = visible;
+        setMeshVisibility(toggle.name, visible);
+      });
+    };
 
     MESH_ORDER.forEach((meshLabel) => {
       const baseName = `${district.prefix}-${meshLabel}`;
@@ -220,9 +230,30 @@ function initUI() {
       }
       input.addEventListener("change", () => {
         setMeshVisibility(baseName, input.checked);
+        if (input.checked && hideAllInput.checked) {
+          hideAllInput.checked = false;
+        }
       });
       content.appendChild(row);
+      sectionToggles.push({ name: baseName, input });
     });
+
+    const hideAllRow = document.createElement("div");
+    hideAllRow.className = "control-row toggle-row";
+    const hideAllId = `toggle-${district.prefix}-hide-all`;
+    hideAllRow.innerHTML = `
+      <label for="${hideAllId}">Hide All</label>
+      <label class="switch">
+        <input type="checkbox" id="${hideAllId}">
+        <span class="slider"></span>
+      </label>
+    `;
+    const hideAllInput = hideAllRow.querySelector("input");
+    hideAllInput.checked = false;
+    hideAllInput.addEventListener("change", () => {
+      setSectionMeshes(!hideAllInput.checked);
+    });
+    content.appendChild(hideAllRow);
 
     section.appendChild(title);
     section.appendChild(content);
