@@ -7,10 +7,13 @@ import {
   DirectionalLight,
   DoubleSide,
   Group,
+  Mesh,
+  MeshBasicMaterial,
   Object3D,
   PerspectiveCamera,
   Scene,
   SRGBColorSpace,
+  SphereGeometry,
   Vector3,
   WebGLRenderer,
 } from "three";
@@ -108,6 +111,25 @@ const DISTRICT_TINTS = new Map(
 
 const visibilityState = new Map();
 const meshRegistry = new Map();
+let streetMeshCache = [];
+const scannerState = {
+  listening: false,
+  timerId: null,
+  burstRemaining: 0,
+  listContainer: null,
+  points: new Map(),
+  focus: null,
+};
+const SCANNER_MESSAGES = [
+  "Shots Fired",
+  "Forum Breach",
+  "Agent Eliminated",
+  "Car Accident",
+  "Loot Dropped",
+  "Active Robbery",
+  "Pedestrian Assault",
+  "Street Race",
+];
 const loadingState = {
   total: DISTRICTS.length * MESH_ORDER.length,
   loaded: 0,
@@ -164,6 +186,8 @@ scene.add(fillLight);
 
 const worldRoot = new Group();
 scene.add(worldRoot);
+const scannerGroup = new Group();
+scene.add(scannerGroup);
 
 function setMeshVisibility(meshName, visible) {
   visibilityState.set(meshName, visible);
@@ -274,6 +298,8 @@ window.addEventListener("resize", handleResize);
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
+  updateScannerPoints();
+  updateCameraFocus();
   renderer.render(scene, camera);
 }
 
@@ -385,6 +411,60 @@ function initUI() {
     settingsContent.style.display = collapsed ? "none" : "block";
   });
 
+  const scannerSection = document.createElement("div");
+  scannerSection.className = "section collapsed";
+
+  const scannerTitle = document.createElement("div");
+  scannerTitle.className = "section-title";
+  scannerTitle.textContent = "SCANNER";
+
+  const scannerContent = document.createElement("div");
+  scannerContent.className = "section-content";
+  scannerContent.style.display = "none";
+
+  const listenRow = document.createElement("div");
+  listenRow.className = "control-row toggle-row";
+  listenRow.innerHTML = `
+    <label for="scanner-listen">Listen</label>
+    <label class="switch">
+      <input type="checkbox" id="scanner-listen">
+      <span class="slider"></span>
+    </label>
+  `;
+  const listenInput = listenRow.querySelector("input");
+  listenInput.checked = false;
+  listenInput.addEventListener("change", () => {
+    scannerState.listening = listenInput.checked;
+    if (scannerState.listening) {
+      if (scannerState.timerId) {
+        clearTimeout(scannerState.timerId);
+        scannerState.timerId = null;
+      }
+      spawnScannerPoint();
+      scannerState.burstRemaining = 10;
+      scheduleNextScan(true);
+    } else if (scannerState.timerId) {
+      clearTimeout(scannerState.timerId);
+      scannerState.timerId = null;
+      scannerState.burstRemaining = 0;
+    }
+  });
+  scannerContent.appendChild(listenRow);
+
+  const scannerList = document.createElement("div");
+  scannerList.className = "scanner-list";
+  scannerContent.appendChild(scannerList);
+  scannerState.listContainer = scannerList;
+
+  scannerSection.appendChild(scannerTitle);
+  scannerSection.appendChild(scannerContent);
+  menuBody.appendChild(scannerSection);
+
+  scannerTitle.addEventListener("click", () => {
+    const collapsed = scannerSection.classList.toggle("collapsed");
+    scannerContent.style.display = collapsed ? "none" : "block";
+  });
+
   const panel = document.getElementById("ui-panel");
   const handles = [
     document.getElementById("ui-handle"),
@@ -491,6 +571,191 @@ function markMeshLoaded() {
   }
 }
 
+function buildStreetMeshCache() {
+  streetMeshCache = [];
+  meshRegistry.forEach((obj, name) => {
+    if (!name.endsWith("-Street")) return;
+    const prefix = name.split("-")[0];
+    const district = DISTRICTS.find((d) => d.prefix === prefix);
+    const districtTitle = district ? district.title : prefix;
+    obj.traverse((child) => {
+      if (child.isMesh && child.geometry) {
+        streetMeshCache.push({ mesh: child, districtTitle });
+      }
+    });
+  });
+}
+
+function samplePointOnMesh(mesh) {
+  const geometry = mesh.geometry;
+  if (!geometry || !geometry.attributes.position) return null;
+  const position = geometry.attributes.position;
+  const index = geometry.index;
+  let i0;
+  let i1;
+  let i2;
+  if (index && index.count >= 3) {
+    const tri = Math.floor(Math.random() * (index.count / 3)) * 3;
+    i0 = index.getX(tri);
+    i1 = index.getX(tri + 1);
+    i2 = index.getX(tri + 2);
+  } else {
+    const tri = Math.floor(Math.random() * (position.count / 3)) * 3;
+    i0 = tri;
+    i1 = tri + 1;
+    i2 = tri + 2;
+  }
+  const a = new Vector3().fromBufferAttribute(position, i0);
+  const b = new Vector3().fromBufferAttribute(position, i1);
+  const c = new Vector3().fromBufferAttribute(position, i2);
+  const r1 = Math.random();
+  const r2 = Math.random();
+  const sqrtR1 = Math.sqrt(r1);
+  const u = 1 - sqrtR1;
+  const v = sqrtR1 * (1 - r2);
+  const w = sqrtR1 * r2;
+  const point = new Vector3(
+    a.x * u + b.x * v + c.x * w,
+    a.y * u + b.y * v + c.y * w,
+    a.z * u + b.z * v + c.z * w
+  );
+  mesh.updateWorldMatrix(true, false);
+  point.applyMatrix4(mesh.matrixWorld);
+  point.z += 200;
+  return point;
+}
+
+const scannerSphereGeometry = new SphereGeometry(2000, 24, 24);
+const scannerSphereMaterial = new MeshBasicMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.9,
+  depthTest: false,
+});
+
+function scheduleNextScan() {
+  if (!scannerState.listening) return;
+  let delay = 3000 + Math.random() * 7000;
+  if (scannerState.burstRemaining > 0) {
+    delay = 1000;
+  }
+  scannerState.timerId = window.setTimeout(() => {
+    spawnScannerPoint();
+    if (scannerState.burstRemaining > 0) {
+      scannerState.burstRemaining -= 1;
+    }
+    scheduleNextScan();
+  }, delay);
+}
+
+function spawnScannerPoint() {
+  if (!streetMeshCache.length) return;
+  const candidate =
+    streetMeshCache[Math.floor(Math.random() * streetMeshCache.length)];
+  const point = samplePointOnMesh(candidate.mesh);
+  if (!point) return;
+  const message =
+    SCANNER_MESSAGES[Math.floor(Math.random() * SCANNER_MESSAGES.length)];
+  const timestamp = new Date();
+  const timeLabel = timestamp.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const id = `${timestamp.getTime()}-${Math.random().toString(16).slice(2, 8)}`;
+
+  const sphere = new Mesh(scannerSphereGeometry, scannerSphereMaterial);
+  sphere.position.copy(point);
+  sphere.userData.baseScale = 1;
+  sphere.userData.createdAt = performance.now();
+  sphere.renderOrder = 10;
+  scannerGroup.add(sphere);
+
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "scanner-item";
+  item.innerHTML = `
+    <div class="scanner-item-message">${message}</div>
+    <div class="scanner-item-meta">${candidate.districtTitle} • ${timeLabel}</div>
+  `;
+  item.addEventListener("click", () => {
+    focusOnPoint(point);
+  });
+  if (scannerState.listContainer) {
+    scannerState.listContainer.prepend(item);
+  }
+
+  const removalTimer = window.setTimeout(() => {
+    removeScannerPoint(id);
+  }, 60000);
+
+  scannerState.points.set(id, {
+    id,
+    sphere,
+    message,
+    district: candidate.districtTitle,
+    timestamp,
+    listItem: item,
+    removalTimer,
+  });
+}
+
+function removeScannerPoint(id) {
+  const entry = scannerState.points.get(id);
+  if (!entry) return;
+  if (entry.removalTimer) {
+    clearTimeout(entry.removalTimer);
+  }
+  if (entry.sphere) {
+    scannerGroup.remove(entry.sphere);
+  }
+  if (entry.listItem) {
+    entry.listItem.remove();
+  }
+  scannerState.points.delete(id);
+}
+
+function updateScannerPoints() {
+  const now = performance.now();
+  scannerState.points.forEach((entry) => {
+    const age = (now - entry.sphere.userData.createdAt) / 1000;
+    const pulse = 1 + Math.sin(age * 3.2) * 0.2;
+    entry.sphere.scale.setScalar(pulse);
+  });
+}
+
+function focusOnPoint(point) {
+  const target = point.clone();
+  const currentTarget = controls.target.clone();
+  const offset = camera.position.clone().sub(currentTarget);
+  const distance = Math.max(72000, Math.min(offset.length(), 180000));
+  const direction = offset.length() > 0.001 ? offset.normalize() : new Vector3(1, 1, 1).normalize();
+  const desiredPosition = target.clone().add(direction.multiplyScalar(distance));
+  scannerState.focus = {
+    startTime: performance.now(),
+    duration: 1800,
+    fromPos: camera.position.clone(),
+    toPos: desiredPosition,
+    fromTarget: currentTarget,
+    toTarget: target,
+  };
+}
+
+function updateCameraFocus() {
+  if (!scannerState.focus) return;
+  const now = performance.now();
+  const { startTime, duration, fromPos, toPos, fromTarget, toTarget } =
+    scannerState.focus;
+  const t = Math.min(1, (now - startTime) / duration);
+  const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  camera.position.lerpVectors(fromPos, toPos, eased);
+  controls.target.lerpVectors(fromTarget, toTarget, eased);
+  camera.updateProjectionMatrix();
+  if (t >= 1) {
+    scannerState.focus = null;
+  }
+}
+
 async function loadAllMeshes() {
   const tasks = [];
   for (const district of DISTRICTS) {
@@ -504,6 +769,7 @@ async function loadAllMeshes() {
     console.warn(`Failed to load ${failures.length} meshes`);
   }
   frameScene();
+  buildStreetMeshCache();
 }
 
 initUI();
