@@ -3,6 +3,7 @@ import {
   ACESFilmicToneMapping,
   AmbientLight,
   Box3,
+  CanvasTexture,
   Color,
   DirectionalLight,
   DoubleSide,
@@ -14,6 +15,8 @@ import {
   Scene,
   SRGBColorSpace,
   SphereGeometry,
+  Sprite,
+  SpriteMaterial,
   Vector3,
   WebGLRenderer,
 } from "three";
@@ -634,6 +637,37 @@ const scannerSphereMaterial = new MeshBasicMaterial({
   depthTest: false,
 });
 
+function createScannerLabel(message, districtTitle, timeLabel) {
+  const canvas = document.createElement("canvas");
+  const width = 1024;
+  const height = 512;
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "rgba(0, 0, 0, 0)";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "700 80px Roboto, Arial, sans-serif";
+  ctx.fillText(message, width / 2, 180);
+  ctx.font = "500 52px Roboto, Arial, sans-serif";
+  ctx.fillText(`${districtTitle} • ${timeLabel}`, width / 2, 300);
+
+  const texture = new CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  const material = new SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+  });
+  const sprite = new Sprite(material);
+  sprite.scale.set(24000, 12000, 1);
+  return sprite;
+}
+
 function scheduleNextScan() {
   if (!scannerState.listening) return;
   let delay = 1000 + Math.random() * 4000;
@@ -672,6 +706,13 @@ function spawnScannerPoint() {
   sphere.renderOrder = 10;
   scannerGroup.add(sphere);
 
+  const label = createScannerLabel(message, candidate.districtTitle, timeLabel);
+  if (label) {
+    label.position.copy(point).add(new Vector3(0, 0, 7000));
+    label.renderOrder = 11;
+    scannerGroup.add(label);
+  }
+
   const item = document.createElement("button");
   item.type = "button";
   item.className = "scanner-item";
@@ -697,6 +738,7 @@ function spawnScannerPoint() {
     district: candidate.districtTitle,
     timestamp,
     listItem: item,
+    label,
     removalTimer,
   });
 }
@@ -709,6 +751,15 @@ function removeScannerPoint(id) {
   }
   if (entry.sphere) {
     scannerGroup.remove(entry.sphere);
+  }
+  if (entry.label) {
+    scannerGroup.remove(entry.label);
+    if (entry.label.material && entry.label.material.map) {
+      entry.label.material.map.dispose();
+    }
+    if (entry.label.material) {
+      entry.label.material.dispose();
+    }
   }
   if (entry.listItem) {
     entry.listItem.remove();
