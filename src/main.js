@@ -129,6 +129,7 @@ const SCANNER_MESSAGES = [
   "Active Robbery",
   "Pedestrian Assault",
   "Street Race",
+  "Suspicious Activity",
 ];
 const loadingState = {
   total: DISTRICTS.length * MESH_ORDER.length,
@@ -635,7 +636,7 @@ const scannerSphereMaterial = new MeshBasicMaterial({
 
 function scheduleNextScan() {
   if (!scannerState.listening) return;
-  let delay = 3000 + Math.random() * 7000;
+  let delay = 1000 + Math.random() * 4000;
   if (scannerState.burstRemaining > 0) {
     delay = 1000;
   }
