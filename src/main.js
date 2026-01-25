@@ -289,6 +289,17 @@ function initUI() {
 
   const menuBody = document.getElementById("menu-body");
 
+  const settingsSection = document.createElement("div");
+  settingsSection.className = "section collapsed";
+
+  const settingsTitle = document.createElement("div");
+  settingsTitle.className = "section-title";
+  settingsTitle.textContent = "SETTINGS";
+
+  const settingsContent = document.createElement("div");
+  settingsContent.className = "section-content";
+  settingsContent.style.display = "none";
+
   DISTRICTS.forEach((district) => {
     const section = document.createElement("div");
     section.className = "section collapsed";
@@ -357,12 +368,21 @@ function initUI() {
 
     section.appendChild(title);
     section.appendChild(content);
-    menuBody.appendChild(section);
+    settingsContent.appendChild(section);
 
     title.addEventListener("click", () => {
       const collapsed = section.classList.toggle("collapsed");
       content.style.display = collapsed ? "none" : "block";
     });
+  });
+
+  settingsSection.appendChild(settingsTitle);
+  settingsSection.appendChild(settingsContent);
+  menuBody.appendChild(settingsSection);
+
+  settingsTitle.addEventListener("click", () => {
+    const collapsed = settingsSection.classList.toggle("collapsed");
+    settingsContent.style.display = collapsed ? "none" : "block";
   });
 
   const panel = document.getElementById("ui-panel");
