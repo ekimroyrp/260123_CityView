@@ -384,7 +384,7 @@ function initUI() {
 
   const settingsTitle = document.createElement("div");
   settingsTitle.className = "section-title";
-  settingsTitle.textContent = "SETTINGS";
+  settingsTitle.textContent = "LAYERS";
 
   const settingsContent = document.createElement("div");
   settingsContent.className = "section-content";

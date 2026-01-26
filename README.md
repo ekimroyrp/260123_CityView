@@ -9,6 +9,7 @@
 - Double-sided shading with tuned transparency: 25% for most meshes, 40% for Plot, 50% for Land, 5% for Overpass.
 - District color themes with brightness/saturation adjustments, darker Land meshes, and brighter Overpass meshes.
 - Loading progress overlay so large OBJ batches provide immediate feedback.
+- Scanner mode that drops timed alert markers on streets with a live activity feed and camera jump-to.
 
 ## Getting Started
 1) `npm install`
@@ -22,6 +23,7 @@
 - **Zoom:** mouse wheel / trackpad pinch
 - **Menus:** click section headers to expand/collapse, drag the panel to reposition
 - **Visibility:** per-mesh toggles plus per-district Hide All switches
+- **Scanner:** toggle Listen to spawn timed alert points; click a feed item to focus the camera
 
 ## Deployment
 - **Local production preview:** `npm install`, then `npm run build` followed by `npm run preview` to inspect the compiled bundle.
