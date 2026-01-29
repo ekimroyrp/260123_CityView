@@ -5,6 +5,7 @@ import {
   Box3,
   CanvasTexture,
   Color,
+  MOUSE,
   DirectionalLight,
   DoubleSide,
   Group,
@@ -179,6 +180,11 @@ controls.enablePan = true;
 controls.enableZoom = true;
 controls.minDistance = 0.1;
 controls.maxDistance = 20000;
+controls.mouseButtons = {
+  LEFT: -1,
+  MIDDLE: MOUSE.PAN,
+  RIGHT: MOUSE.ROTATE,
+};
 
 scene.add(new AmbientLight(0x9ab8ff, 0.6));
 
