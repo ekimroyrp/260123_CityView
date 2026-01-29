@@ -20,6 +20,7 @@ import {
   SphereGeometry,
   Sprite,
   SpriteMaterial,
+  Vector2,
   Vector3,
   WebGLRenderer,
 } from "three";
@@ -118,6 +119,8 @@ const DISTRICT_TINTS = new Map(
 const visibilityState = new Map();
 const meshRegistry = new Map();
 let streetMeshCache = [];
+const gridOrigin = new Vector3(0, 0, 0);
+let centerPlaneObject = null;
 const scannerState = {
   listening: false,
   timerId: null,
@@ -198,11 +201,12 @@ scene.add(fillLight);
 
 const gridUniforms = {
   uColor: { value: new Color(0xc8c8c8) },
-  uSpacing: { value: 5000.0 },
+  uSpacing: { value: 15094.3 },
   uLineWidth: { value: 150.0 },
   uFadeStart: { value: 120000.0 },
   uFadeEnd: { value: 600000.0 },
   uOpacity: { value: 0.3 },
+  uOrigin: { value: new Vector2(0, 0) },
 };
 
 const gridMaterial = new ShaderMaterial({
@@ -227,10 +231,11 @@ const gridMaterial = new ShaderMaterial({
     uniform float uFadeStart;
     uniform float uFadeEnd;
     uniform float uOpacity;
+    uniform vec2 uOrigin;
     varying vec3 vWorldPos;
     varying vec3 vViewPos;
     void main() {
-      vec2 coord = vWorldPos.xy / uSpacing;
+      vec2 coord = (vWorldPos.xy - uOrigin) / uSpacing;
       vec2 grid = abs(fract(coord) - 0.5);
       float lineDist = min(grid.x, grid.y) * uSpacing;
       float line = 1.0 - smoothstep(uLineWidth * 0.5, uLineWidth, lineDist);
@@ -246,7 +251,7 @@ const gridMaterial = new ShaderMaterial({
 const gridSize = gridUniforms.uFadeEnd.value * 20;
 let gridBaseZ = -1;
 const gridMesh = new Mesh(new PlaneGeometry(gridSize, gridSize), gridMaterial);
-gridMesh.position.set(0, 0, gridBaseZ);
+gridMesh.position.set(gridOrigin.x, gridOrigin.y, gridBaseZ);
 gridMesh.renderOrder = -5;
 gridMesh.frustumCulled = false;
 scene.add(gridMesh);
@@ -327,6 +332,36 @@ function loadMesh(district, meshLabel) {
   });
 }
 
+function loadCenterPlane() {
+  const url = new URL("../Blockout/CENTER/Center.obj", import.meta.url);
+  const loader = new OBJLoader();
+  return new Promise((resolve, reject) => {
+    loader.load(
+      url.href,
+      (obj) => {
+        obj.name = "CENTER-PLANE";
+        centerPlaneObject = obj;
+        obj.traverse((child) => {
+          if (!child.isMesh) return;
+          child.material = new MeshBasicMaterial({
+            color: 0xff0000,
+            side: DoubleSide,
+            transparent: false,
+            opacity: 1,
+          });
+        });
+        worldRoot.add(obj);
+        resolve(obj);
+      },
+      undefined,
+      (error) => {
+        console.warn("Failed to load Center.obj", error);
+        reject(error);
+      }
+    );
+  });
+}
+
 function frameScene() {
   const box = new Box3().setFromObject(worldRoot);
   if (box.isEmpty()) return;
@@ -365,8 +400,15 @@ window.addEventListener("resize", handleResize);
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
-  gridMesh.position.x = camera.position.x;
-  gridMesh.position.y = camera.position.y;
+  const spacing = gridUniforms.uSpacing.value;
+  const snappedX =
+    Math.floor((camera.position.x - gridOrigin.x) / spacing) * spacing +
+    gridOrigin.x;
+  const snappedY =
+    Math.floor((camera.position.y - gridOrigin.y) / spacing) * spacing +
+    gridOrigin.y;
+  gridMesh.position.x = snappedX;
+  gridMesh.position.y = snappedY;
   gridMesh.position.z = gridBaseZ;
   updateScannerPoints();
   updateCameraFocus();
@@ -656,6 +698,15 @@ function buildStreetMeshCache() {
   });
 }
 
+function updateGridOriginFromCenter() {
+  if (!centerPlaneObject) return;
+  const box = new Box3().setFromObject(centerPlaneObject);
+  if (!box.isEmpty()) {
+    box.getCenter(gridOrigin);
+    gridUniforms.uOrigin.value.set(gridOrigin.x, gridOrigin.y);
+  }
+}
+
 function updateGridHeightFromLand() {
   let landBounds = null;
   worldRoot.updateMatrixWorld(true);
@@ -897,6 +948,7 @@ async function loadAllMeshes() {
       tasks.push(loadMesh(district, meshLabel));
     }
   }
+  tasks.push(loadCenterPlane());
   const results = await Promise.allSettled(tasks);
   const failures = results.filter((r) => r.status === "rejected");
   if (failures.length) {
@@ -905,6 +957,7 @@ async function loadAllMeshes() {
   frameScene();
   buildStreetMeshCache();
   updateGridHeightFromLand();
+  updateGridOriginFromCenter();
 }
 
 initUI();
