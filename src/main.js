@@ -278,6 +278,7 @@ const popupState = {
   isOpen: false,
 };
 let portalSphere = null;
+let portalAnchor = null;
 const raycaster = new Raycaster();
 const pointer = new Vector2();
 
@@ -396,26 +397,66 @@ function loadCenterPlane() {
   });
 }
 
-function ensurePortalSphere() {
-  if (!centerPlaneObject) return;
-  worldRoot.updateMatrixWorld(true);
-  const box = new Box3().setFromObject(centerPlaneObject);
-  if (box.isEmpty()) return;
-  const size = new Vector3();
-  const center = new Vector3();
-  box.getSize(size);
-  box.getCenter(center);
-  const radius = Math.max(size.x, size.y) * 0.5;
-  if (!portalSphere) {
-    const geometry = new SphereGeometry(1, 32, 32);
-    const material = new MeshBasicMaterial({ color: 0xffffff });
-    portalSphere = new Mesh(geometry, material);
-    portalSphere.name = "CENTER-PORTAL";
-    portalSphere.renderOrder = 5;
-    worldRoot.add(portalSphere);
+function pickDeterministicPoint(mesh) {
+  const geometry = mesh.geometry;
+  if (!geometry || !geometry.attributes.position) return null;
+  const position = geometry.attributes.position;
+  const index = geometry.index;
+  const seed = 7;
+  let triIndex = 0;
+  if (index && index.count >= 3) {
+    triIndex = (seed * 13) % (index.count / 3);
+  } else {
+    triIndex = (seed * 13) % (position.count / 3);
   }
-  portalSphere.position.copy(center);
-  portalSphere.scale.setScalar(radius);
+  const tri = triIndex * 3;
+  const i0 = index ? index.getX(tri) : tri;
+  const i1 = index ? index.getX(tri + 1) : tri + 1;
+  const i2 = index ? index.getX(tri + 2) : tri + 2;
+  const a = new Vector3().fromBufferAttribute(position, i0);
+  const b = new Vector3().fromBufferAttribute(position, i1);
+  const c = new Vector3().fromBufferAttribute(position, i2);
+  const u = 0.2;
+  const v = 0.35;
+  const w = 1 - u - v;
+  const point = new Vector3(
+    a.x * u + b.x * v + c.x * w,
+    a.y * u + b.y * v + c.y * w,
+    a.z * u + b.z * v + c.z * w
+  );
+  mesh.updateWorldMatrix(true, false);
+  return point.applyMatrix4(mesh.matrixWorld);
+}
+
+function ensurePortalSphere() {
+  if (portalAnchor) {
+    if (!portalSphere) {
+      const material = scannerSphereMaterial.clone();
+      portalSphere = new Mesh(scannerSphereGeometry, material);
+      portalSphere.name = "CENTER-PORTAL";
+      portalSphere.renderOrder = 5;
+      worldRoot.add(portalSphere);
+    }
+    portalSphere.position.copy(portalAnchor.position);
+    const worldScale = worldRoot.scale.x || 1;
+    portalSphere.scale.setScalar(portalAnchor.radius / worldScale);
+    return;
+  }
+  const nsBuilding = meshRegistry.get("NS-Building");
+  if (!nsBuilding) return;
+  let anchor = null;
+  worldRoot.updateMatrixWorld(true);
+  nsBuilding.traverse((child) => {
+    if (anchor || !child.isMesh) return;
+    const point = pickDeterministicPoint(child);
+    if (point) {
+      const localPoint = worldRoot.worldToLocal(point.clone());
+      anchor = { position: localPoint, radius: 1 };
+    }
+  });
+  if (!anchor) return;
+  portalAnchor = anchor;
+  ensurePortalSphere();
 }
 
 function frameScene() {
@@ -910,7 +951,6 @@ function updateGridOriginFromCenter() {
     const half = gridUniforms.uSpacing.value * 0.5;
     gridUniforms.uOrigin.value.set(gridOrigin.x - half, gridOrigin.y - half);
   }
-  ensurePortalSphere();
 }
 
 function updateGridHeightFromLand() {
@@ -1191,6 +1231,7 @@ async function loadAllMeshes() {
   buildStreetMeshCache();
   updateGridHeightFromLand();
   updateGridOriginFromCenter();
+  ensurePortalSphere();
 }
 
 initUI();
