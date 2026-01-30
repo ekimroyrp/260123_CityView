@@ -1,6 +1,9 @@
 # Dependencies
 node_modules
 
+# Build output
+dist
+
 # Logs and temp
 npm-debug.log*
 pnpm-debug.log*
