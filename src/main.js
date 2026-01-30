@@ -47,7 +47,7 @@ const DISTRICT_COLORS = new Map([
   ["LM", 0xe63036],
   ["TG", 0x8fd558],
   ["HH", 0x5a98fb],
-  ["DZ", 0xff5819],
+  ["DZ", 0xff6a00],
 ]);
 
 function rgbToHsv(r, g, b) {
