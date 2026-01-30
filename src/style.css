@@ -155,7 +155,7 @@ html {
   -webkit-backdrop-filter: var(--panel-blur);
   z-index: 20;
   overflow: hidden;
-  resize: both;
+  resize: none;
   pointer-events: auto;
 }
 
