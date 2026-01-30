@@ -25,7 +25,6 @@ import {
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 const DISTRICTS = [
@@ -266,11 +265,7 @@ scene.add(worldRoot);
 const scannerGroup = new Group();
 scene.add(scannerGroup);
 
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath(`${import.meta.env.BASE_URL}draco/`);
-dracoLoader.setDecoderConfig({ type: "wasm" });
 const gltfLoader = new GLTFLoader();
-gltfLoader.setDRACOLoader(dracoLoader);
 
 function setMeshVisibility(meshName, visible) {
   visibilityState.set(meshName, visible);
