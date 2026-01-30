@@ -752,7 +752,6 @@ function initPopup() {
         <img class="popup-image" alt="Card preview" />
       </div>
       <div class="popup-meta">
-        <div class="popup-name"></div>
         <div class="popup-attrs"></div>
       </div>
     </div>
@@ -761,8 +760,8 @@ function initPopup() {
   const header = container.querySelector(".popup-header");
   const closeBtn = container.querySelector(".popup-close");
   const image = container.querySelector(".popup-image");
-  const name = container.querySelector(".popup-name");
   const attrs = container.querySelector(".popup-attrs");
+  const title = container.querySelector(".popup-title");
 
   const startDrag = { active: false, x: 0, y: 0, left: 0, top: 0 };
   const onMove = (e) => {
@@ -801,14 +800,11 @@ function initPopup() {
   popupState.header = header;
   popupState.closeBtn = closeBtn;
   popupState.image = image;
-  popupState.name = name;
   popupState.attrs = attrs;
 
   const cardName = METADATA?.cardname ?? "Unknown Card";
   const imageUrl = METADATA?.image_url ?? "";
-  if (popupState.name) {
-    popupState.name.textContent = cardName;
-  }
+  if (title) title.textContent = cardName;
   if (popupState.image) {
     popupState.image.src = imageUrl;
     popupState.image.alt = cardName;
@@ -824,7 +820,11 @@ function initPopup() {
       const label = document.createElement("span");
       label.textContent = attr?.trait_type ?? "Attribute";
       const value = document.createElement("strong");
-      value.textContent = attr?.value ?? "";
+      let displayValue = attr?.value ?? "";
+      if ((attr?.trait_type ?? "").toLowerCase() === "neighborhood") {
+        displayValue = String(displayValue).toUpperCase();
+      }
+      value.textContent = displayValue;
       row.appendChild(label);
       row.appendChild(value);
       popupState.attrs.appendChild(row);

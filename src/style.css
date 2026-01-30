@@ -219,12 +219,6 @@ html {
   color: #e6e6e6;
 }
 
-.popup-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #ffffff;
-}
-
 .popup-attrs {
   display: grid;
   gap: 6px;
