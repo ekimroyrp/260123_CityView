@@ -135,8 +135,8 @@ html {
   position: fixed;
   left: 50%;
   top: 50%;
-  width: 360px;
-  height: 580px;
+  width: 320px;
+  height: 630px;
   min-width: 320px;
   min-height: 240px;
   max-width: calc(100vw - 20px);
@@ -222,8 +222,6 @@ html {
 .popup-attrs {
   display: grid;
   gap: 6px;
-  max-height: 140px;
-  overflow-y: auto;
   padding-right: 4px;
 }
 
