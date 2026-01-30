@@ -349,6 +349,7 @@ function loadCenterPlane() {
             transparent: false,
             opacity: 1,
           });
+          child.visible = false;
         });
         worldRoot.add(obj);
         resolve(obj);
@@ -703,7 +704,8 @@ function updateGridOriginFromCenter() {
   const box = new Box3().setFromObject(centerPlaneObject);
   if (!box.isEmpty()) {
     box.getCenter(gridOrigin);
-    gridUniforms.uOrigin.value.set(gridOrigin.x, gridOrigin.y);
+    const half = gridUniforms.uSpacing.value * 0.5;
+    gridUniforms.uOrigin.value.set(gridOrigin.x - half, gridOrigin.y - half);
   }
 }
 
