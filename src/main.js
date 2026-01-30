@@ -780,11 +780,13 @@ function initPopup() {
   header.addEventListener("mousedown", (e) => {
     startDrag.active = true;
     const rect = container.getBoundingClientRect();
+    container.style.left = `${rect.left}px`;
+    container.style.top = `${rect.top}px`;
+    container.style.transform = "none";
     startDrag.x = e.clientX;
     startDrag.y = e.clientY;
     startDrag.left = rect.left;
     startDrag.top = rect.top;
-    container.style.transform = "none";
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
     e.preventDefault();
