@@ -41,7 +41,7 @@ const DISTRICTS = [
 const MESH_ORDER = ["Building", "Overpass", "Plot", "Sidewalk", "Street", "Land"];
 const DISTRICT_COLORS = new Map([
   ["NS", 0x0b9a4c],
-  ["FL", 0xfeb953],
+  ["FL", 0xffd400],
   ["NX", 0xb0b5c8],
   ["SM", 0x7b59fa],
   ["LM", 0xe63036],
