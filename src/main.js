@@ -121,6 +121,9 @@ const meshRegistry = new Map();
 let streetMeshCache = [];
 const gridOrigin = new Vector3(0, 0, 0);
 let centerPlaneObject = null;
+const colorState = {
+  neighborhoodColors: true,
+};
 const scannerState = {
   listening: false,
   timerId: null,
@@ -273,6 +276,8 @@ function applyDoubleSided(obj, meshName = "", tint = null) {
   const isLand = meshName.endsWith("-Land");
   const isOverpass = meshName.endsWith("-Overpass");
   const isPlot = meshName.endsWith("-Plot");
+  const isBuilding = meshName.endsWith("-Building");
+  const appliedTint = colorState.neighborhoodColors ? tint : 0xffffff;
   const opacity = isOverpass ? 0.95 : isPlot ? 0.6 : isLand ? 0.5 : 0.75;
   obj.traverse((child) => {
     if (!child.isMesh) return;
@@ -286,8 +291,8 @@ function applyDoubleSided(obj, meshName = "", tint = null) {
       material.side = DoubleSide;
       material.transparent = true;
       material.opacity = opacity;
-      if (tint !== null && material && "color" in material) {
-        material.color.set(tint);
+      if (appliedTint !== null && material && "color" in material) {
+        material.color.set(appliedTint);
         if (isLand) {
           material.color.multiplyScalar(0.5);
         } else if (isOverpass) {
@@ -433,11 +438,52 @@ function initUI() {
 
   const settingsTitle = document.createElement("div");
   settingsTitle.className = "section-title";
-  settingsTitle.textContent = "LAYERS";
+  settingsTitle.textContent = "SETTINGS";
 
   const settingsContent = document.createElement("div");
   settingsContent.className = "section-content";
   settingsContent.style.display = "none";
+
+  const colorsRow = document.createElement("div");
+  colorsRow.className = "control-row toggle-row";
+  colorsRow.innerHTML = `
+    <label for="neighborhood-colors">Neighborhood Colors</label>
+    <label class="switch">
+      <input type="checkbox" id="neighborhood-colors" checked>
+      <span class="slider"></span>
+    </label>
+  `;
+  const colorsInput = colorsRow.querySelector("input");
+  colorsInput.checked = true;
+  colorsInput.addEventListener("change", () => {
+    colorState.neighborhoodColors = colorsInput.checked;
+    meshRegistry.forEach((obj, name) => {
+      const prefix = name.split("-")[0];
+      const tint = DISTRICT_TINTS.get(prefix) ?? 0xffffff;
+      applyDoubleSided(obj, name, tint);
+    });
+  });
+  settingsContent.appendChild(colorsRow);
+
+  settingsSection.appendChild(settingsTitle);
+  settingsSection.appendChild(settingsContent);
+  menuBody.appendChild(settingsSection);
+
+  settingsTitle.addEventListener("click", () => {
+    const collapsed = settingsSection.classList.toggle("collapsed");
+    settingsContent.style.display = collapsed ? "none" : "block";
+  });
+
+  const layersSection = document.createElement("div");
+  layersSection.className = "section collapsed";
+
+  const layersTitle = document.createElement("div");
+  layersTitle.className = "section-title";
+  layersTitle.textContent = "LAYERS";
+
+  const layersContent = document.createElement("div");
+  layersContent.className = "section-content";
+  layersContent.style.display = "none";
 
   DISTRICTS.forEach((district) => {
     const section = document.createElement("div");
@@ -507,7 +553,7 @@ function initUI() {
 
     section.appendChild(title);
     section.appendChild(content);
-    settingsContent.appendChild(section);
+    layersContent.appendChild(section);
 
     title.addEventListener("click", () => {
       const collapsed = section.classList.toggle("collapsed");
@@ -515,13 +561,13 @@ function initUI() {
     });
   });
 
-  settingsSection.appendChild(settingsTitle);
-  settingsSection.appendChild(settingsContent);
-  menuBody.appendChild(settingsSection);
+  layersSection.appendChild(layersTitle);
+  layersSection.appendChild(layersContent);
+  menuBody.appendChild(layersSection);
 
-  settingsTitle.addEventListener("click", () => {
-    const collapsed = settingsSection.classList.toggle("collapsed");
-    settingsContent.style.display = collapsed ? "none" : "block";
+  layersTitle.addEventListener("click", () => {
+    const collapsed = layersSection.classList.toggle("collapsed");
+    layersContent.style.display = collapsed ? "none" : "block";
   });
 
   const scannerSection = document.createElement("div");
@@ -560,6 +606,8 @@ function initUI() {
       clearTimeout(scannerState.timerId);
       scannerState.timerId = null;
       scannerState.burstRemaining = 0;
+      const ids = Array.from(scannerState.points.keys());
+      ids.forEach((id) => removeScannerPoint(id));
     }
   });
   scannerContent.appendChild(listenRow);
