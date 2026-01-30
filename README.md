@@ -10,6 +10,7 @@
 - District color themes with brightness/saturation adjustments, darker Land meshes, and brighter Overpass meshes.
 - Loading progress overlay so large GLB batches provide immediate feedback.
 - Scanner mode that drops timed alert markers on streets with a live activity feed and camera jump-to.
+- Clickable center marker that opens an in-app card panel populated from `Metadata/test.json`.
 
 ## Getting Started
 1) `npm install`
@@ -24,6 +25,7 @@
 - **Menus:** click section headers to expand/collapse, drag the panel to reposition
 - **Visibility:** per-mesh toggles plus per-district Hide All switches
 - **Scanner:** toggle Listen to spawn timed alert points; click a feed item to focus the camera
+- **Popup:** click the center marker sphere to open the floating viewer
 
 ## Deployment
 - **Local production preview:** `npm install`, then `npm run build` followed by `npm run preview` to inspect the compiled bundle.

@@ -9,6 +9,7 @@ import {
   DirectionalLight,
   DoubleSide,
   Group,
+  Raycaster,
   Mesh,
   MeshBasicMaterial,
   Object3D,
@@ -26,6 +27,7 @@ import {
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import metadataPayload from "../Metadata/test.json";
 
 const DISTRICTS = [
   { title: "NORTH STAR", folder: "NORTH STAR", prefix: "NS" },
@@ -265,6 +267,20 @@ scene.add(worldRoot);
 const scannerGroup = new Group();
 scene.add(scannerGroup);
 
+const METADATA = metadataPayload?.metadata ?? metadataPayload;
+const popupState = {
+  container: null,
+  header: null,
+  closeBtn: null,
+  image: null,
+  name: null,
+  attrs: null,
+  isOpen: false,
+};
+let portalSphere = null;
+const raycaster = new Raycaster();
+const pointer = new Vector2();
+
 const gltfLoader = new GLTFLoader();
 
 function setMeshVisibility(meshName, visible) {
@@ -378,6 +394,28 @@ function loadCenterPlane() {
       }
     );
   });
+}
+
+function ensurePortalSphere() {
+  if (!centerPlaneObject) return;
+  worldRoot.updateMatrixWorld(true);
+  const box = new Box3().setFromObject(centerPlaneObject);
+  if (box.isEmpty()) return;
+  const size = new Vector3();
+  const center = new Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+  const radius = Math.max(size.x, size.y) * 0.5;
+  if (!portalSphere) {
+    const geometry = new SphereGeometry(1, 32, 32);
+    const material = new MeshBasicMaterial({ color: 0xffffff });
+    portalSphere = new Mesh(geometry, material);
+    portalSphere.name = "CENTER-PORTAL";
+    portalSphere.renderOrder = 5;
+    worldRoot.add(portalSphere);
+  }
+  portalSphere.position.copy(center);
+  portalSphere.scale.setScalar(radius);
 }
 
 function frameScene() {
@@ -700,6 +738,109 @@ function initUI() {
   }
 }
 
+function initPopup() {
+  const app = document.getElementById("app");
+  const container = document.createElement("div");
+  container.id = "popup-window";
+  container.innerHTML = `
+    <div class="popup-header">
+      <span class="popup-title">Card Details</span>
+      <button class="popup-close" type="button">&times;</button>
+    </div>
+    <div class="popup-body">
+      <div class="popup-image-wrap">
+        <img class="popup-image" alt="Card preview" />
+      </div>
+      <div class="popup-meta">
+        <div class="popup-name"></div>
+        <div class="popup-attrs"></div>
+      </div>
+    </div>
+  `;
+  app.appendChild(container);
+  const header = container.querySelector(".popup-header");
+  const closeBtn = container.querySelector(".popup-close");
+  const image = container.querySelector(".popup-image");
+  const name = container.querySelector(".popup-name");
+  const attrs = container.querySelector(".popup-attrs");
+
+  const startDrag = { active: false, x: 0, y: 0, left: 0, top: 0 };
+  const onMove = (e) => {
+    if (!startDrag.active) return;
+    const dx = e.clientX - startDrag.x;
+    const dy = e.clientY - startDrag.y;
+    container.style.left = `${startDrag.left + dx}px`;
+    container.style.top = `${startDrag.top + dy}px`;
+  };
+  const onUp = () => {
+    if (!startDrag.active) return;
+    startDrag.active = false;
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+  };
+  header.addEventListener("mousedown", (e) => {
+    startDrag.active = true;
+    const rect = container.getBoundingClientRect();
+    startDrag.x = e.clientX;
+    startDrag.y = e.clientY;
+    startDrag.left = rect.left;
+    startDrag.top = rect.top;
+    container.style.transform = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  closeBtn.addEventListener("click", () => {
+    container.classList.remove("visible");
+    popupState.isOpen = false;
+  });
+
+  popupState.container = container;
+  popupState.header = header;
+  popupState.closeBtn = closeBtn;
+  popupState.image = image;
+  popupState.name = name;
+  popupState.attrs = attrs;
+
+  const cardName = METADATA?.cardname ?? "Unknown Card";
+  const imageUrl = METADATA?.image_url ?? "";
+  if (popupState.name) {
+    popupState.name.textContent = cardName;
+  }
+  if (popupState.image) {
+    popupState.image.src = imageUrl;
+    popupState.image.alt = cardName;
+  }
+  if (popupState.attrs) {
+    popupState.attrs.innerHTML = "";
+    const attributes = Array.isArray(METADATA?.attributes)
+      ? METADATA.attributes
+      : [];
+    attributes.forEach((attr) => {
+      const row = document.createElement("div");
+      row.className = "popup-attr";
+      const label = document.createElement("span");
+      label.textContent = attr?.trait_type ?? "Attribute";
+      const value = document.createElement("strong");
+      value.textContent = attr?.value ?? "";
+      row.appendChild(label);
+      row.appendChild(value);
+      popupState.attrs.appendChild(row);
+    });
+  }
+}
+
+function openPopup() {
+  if (!popupState.container) {
+    initPopup();
+  }
+  if (!popupState.container) return;
+  popupState.container.classList.add("visible");
+  popupState.isOpen = true;
+}
+
 function initLoadingOverlay() {
   const app = document.getElementById("app");
   const overlay = document.createElement("div");
@@ -767,6 +908,7 @@ function updateGridOriginFromCenter() {
     const half = gridUniforms.uSpacing.value * 0.5;
     gridUniforms.uOrigin.value.set(gridOrigin.x - half, gridOrigin.y - half);
   }
+  ensurePortalSphere();
 }
 
 function updateGridHeightFromLand() {
@@ -1003,6 +1145,32 @@ function updateCameraFocus() {
   }
 }
 
+let clickStart = null;
+canvas.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0) return;
+  if (event.target !== canvas) return;
+  clickStart = { x: event.clientX, y: event.clientY, time: performance.now() };
+});
+
+canvas.addEventListener("pointerup", (event) => {
+  if (event.button !== 0) return;
+  if (!clickStart) return;
+  const dx = event.clientX - clickStart.x;
+  const dy = event.clientY - clickStart.y;
+  const dt = performance.now() - clickStart.time;
+  clickStart = null;
+  if (Math.hypot(dx, dy) > 4 || dt > 300) return;
+  if (!portalSphere) return;
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObject(portalSphere, true);
+  if (hits.length) {
+    openPopup();
+  }
+});
+
 async function loadAllMeshes() {
   const tasks = [];
   for (const district of DISTRICTS) {
@@ -1024,6 +1192,7 @@ async function loadAllMeshes() {
 }
 
 initUI();
+initPopup();
 initLoadingOverlay();
 updateLoadingOverlay();
 loadAllMeshes();

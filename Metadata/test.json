@@ -1,0 +1,69 @@
+{
+            "tag": "1",
+            "metadata": {
+                "animation_url": "https://wilder-land-cards.s3.amazonaws.com/Folder2/Videos/NS-1.mp4",
+                "image_url": "https://wilder-land-cards.s3.amazonaws.com/Folder2/Photos/NS-1.png",
+                "cardname": "NS-1",
+                "attributes": [
+                    {
+                        "trait_type": "Neighborhood",
+                        "value": "North Star"
+                    },
+                    {
+                        "trait_type": "Zoning Type",
+                        "value": "RESIDENTIAL"
+                    },
+                    {
+                        "trait_type": "Plot Size",
+                        "value": "NANO"
+                    },
+                    {
+                        "trait_type": "Building Size",
+                        "value": "LOWRISE"
+                    },
+                    {
+                        "trait_type": "Distance To Ocean",
+                        "value": "MEDIUM"
+                    },
+                    {
+                        "trait_type": "Distance To Bay",
+                        "value": "CLOSE"
+                    },
+                    {
+                        "display_type": "number",
+                        "trait_type": "Plot Area (M²)",
+                        "value": "940"
+                    },
+                    {
+                        "display_type": "number",
+                        "trait_type": "Min Building Height (M)",
+                        "value": "16"
+                    },
+                    {
+                        "display_type": "number",
+                        "trait_type": "Max Building Height (M)",
+                        "value": "20"
+                    },
+                    {
+                        "display_type": "number",
+                        "trait_type": "Min # Of Floors",
+                        "value": "3"
+                    },
+                    {
+                        "display_type": "number",
+                        "trait_type": "Max # Of Floors",
+                        "value": "4"
+                    },
+                    {
+                        "display_type": "number",
+                        "trait_type": "Distance To Ocean (M)",
+                        "value": "312"
+                    },
+                    {
+                        "display_type": "number",
+                        "trait_type": "Distance To Bay (M)",
+                        "value": "125"
+                    }
+                ]
+            }
+        }
