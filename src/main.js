@@ -25,7 +25,8 @@ import {
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 const DISTRICTS = [
   { title: "NORTH STAR", folder: "NORTH STAR", prefix: "NS" },
@@ -212,6 +213,7 @@ const gridUniforms = {
   uOrigin: { value: new Vector2(0, 0) },
 };
 
+
 const gridMaterial = new ShaderMaterial({
   transparent: true,
   depthWrite: false,
@@ -264,6 +266,12 @@ scene.add(worldRoot);
 const scannerGroup = new Group();
 scene.add(scannerGroup);
 
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath(`${import.meta.env.BASE_URL}draco/`);
+dracoLoader.setDecoderConfig({ type: "wasm" });
+const gltfLoader = new GLTFLoader();
+gltfLoader.setDRACOLoader(dracoLoader);
+
 function setMeshVisibility(meshName, visible) {
   visibilityState.set(meshName, visible);
   const mesh = meshRegistry.get(meshName);
@@ -291,6 +299,10 @@ function applyDoubleSided(obj, meshName = "", tint = null) {
       material.side = DoubleSide;
       material.transparent = true;
       material.opacity = opacity;
+      if (material.isMeshStandardMaterial || material.isMeshPhysicalMaterial) {
+        material.metalness = 0;
+        material.roughness = 0.85;
+      }
       if (appliedTint !== null && material && "color" in material) {
         material.color.set(appliedTint);
         if (isLand) {
@@ -304,18 +316,23 @@ function applyDoubleSided(obj, meshName = "", tint = null) {
   });
 }
 
+function applySceneScale() {
+  worldRoot.scale.setScalar(100);
+  worldRoot.updateMatrixWorld(true);
+}
+
 function loadMesh(district, meshLabel) {
   const baseName = `${district.prefix}-${meshLabel}`;
   const tint = DISTRICT_TINTS.get(district.prefix) ?? 0xffffff;
   const url = new URL(
-    `../Blockout/${district.folder}/${baseName}.obj`,
+    `../Blockout/${district.folder}/${baseName}.glb`,
     import.meta.url
   );
-  const loader = new OBJLoader();
   return new Promise((resolve, reject) => {
-    loader.load(
+    gltfLoader.load(
       url.href,
-      (obj) => {
+      (gltf) => {
+        const obj = gltf.scene;
         obj.name = baseName;
         applyDoubleSided(obj, baseName, tint);
         const desired = visibilityState.get(baseName);
@@ -338,12 +355,12 @@ function loadMesh(district, meshLabel) {
 }
 
 function loadCenterPlane() {
-  const url = new URL("../Blockout/CENTER/Center.obj", import.meta.url);
-  const loader = new OBJLoader();
+  const url = new URL("../Blockout/CENTER/Center.glb", import.meta.url);
   return new Promise((resolve, reject) => {
-    loader.load(
+    gltfLoader.load(
       url.href,
-      (obj) => {
+      (gltf) => {
+        const obj = gltf.scene;
         obj.name = "CENTER-PLANE";
         centerPlaneObject = obj;
         obj.traverse((child) => {
@@ -361,7 +378,7 @@ function loadCenterPlane() {
       },
       undefined,
       (error) => {
-        console.warn("Failed to load Center.obj", error);
+        console.warn("Failed to load Center.glb", error);
         reject(error);
       }
     );
@@ -1004,6 +1021,7 @@ async function loadAllMeshes() {
   if (failures.length) {
     console.warn(`Failed to load ${failures.length} meshes`);
   }
+  applySceneScale();
   frameScene();
   buildStreetMeshCache();
   updateGridHeightFromLand();
